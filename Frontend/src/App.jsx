@@ -21,6 +21,7 @@ function App() {
   const [rightPanelTab, setRightPanelTab] = useState('reviews');
 
   useEffect(() => {
+    document.title = 'Concept-2-3D | AI Spatial Studio';
     return () => {
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -274,17 +275,24 @@ function App() {
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
             <Layers className="text-white w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-            Concept3D
-          </h1>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-cyan-200 drop-shadow-[0_0_14px_rgba(103,232,249,0.22)]">
+              Concept-2-3D
+            </h1>
+            <p className="text-[10px] md:text-xs uppercase tracking-[0.24em] text-slate-400">AI Spatial Studio</p>
+          </div>
+        </div>
+        <div className="hidden md:flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/5 px-3 py-1 text-xs tracking-wide text-cyan-200">
+          <span className="inline-block h-2 w-2 rounded-full bg-cyan-300" />
+          Powered by Concept Engine
         </div>
       </header>
 
       <main className="w-full max-w-[1440px] flex-grow flex flex-col z-10 relative overflow-hidden">
         {/* Tagline section (now always visible but can shrink) */}
         <div className={`text-center transition-all duration-700 ${modelData ? 'mb-4' : 'mb-8 py-10'}`}>
-          <h2 className={`${modelData ? 'text-3xl' : 'text-5xl md:text-6xl'} font-black mb-4 tracking-tighter leading-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-500`}>
-            Think it. <span className="text-blue-500">See it.</span> Explore it.
+          <h2 className={`${modelData ? 'text-3xl' : 'text-5xl md:text-6xl'} font-black mb-4 tracking-tighter leading-tight text-slate-100`}>
+            Think it. <span className="text-cyan-300">See it.</span> Explore it.
           </h2>
           {!modelData && (
             <p className="text-slate-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
@@ -427,6 +435,10 @@ function App() {
         model={detailedModel}
         onClose={() => setDetailedModel(null)}
       />
+
+      <footer className="w-full max-w-[1440px] pt-3 pb-1 text-center text-[10px] md:text-xs uppercase tracking-[0.18em] text-slate-500 z-10">
+        Concept-2-3D • Crafted by Mohammad Huzaifa and Team
+      </footer>
     </div>
   );
 }

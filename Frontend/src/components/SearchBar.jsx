@@ -28,10 +28,15 @@ export default function SearchBar({ onSearch, onImageUpload, isLoading }) {
   return (
     <div className="w-full max-w-2xl mx-auto my-8 relative z-10">
       <form onSubmit={handleSubmit} className="relative flex items-center">
+        <label htmlFor="concept-query" className="sr-only">
+          Search concept
+        </label>
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
           <Search className={`h-5 w-5 ${isLoading ? 'text-primary-500 animate-pulse' : 'text-slate-400'}`} />
         </div>
         <input
+          id="concept-query"
+          name="conceptQuery"
           type="text"
           className="block w-full pl-12 pr-4 py-4 bg-slate-800/80 backdrop-blur-md border border-slate-700 rounded-2xl leading-5 text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 sm:text-lg transition-all shadow-xl"
           placeholder="What do you want to explore? e.g. 'Human Heart'"
@@ -49,11 +54,11 @@ export default function SearchBar({ onSearch, onImageUpload, isLoading }) {
       </form>
 
       <div className="mt-3 flex items-center gap-3">
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label htmlFor="image-upload-input" className="flex items-center gap-2 cursor-pointer">
           <Image className="w-5 h-5 text-slate-300" />
           <span className="text-sm text-slate-400">Upload an image to generate 3D</span>
         </label>
-        <input type="file" accept="image/*" onChange={handleFileChange} />
+        <input id="image-upload-input" name="imageUpload" type="file" accept="image/*" onChange={handleFileChange} />
         <button
           type="button"
           onClick={handleUpload}

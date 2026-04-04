@@ -90,8 +90,13 @@ export default function AIChatbot() {
 
       {/* Input */}
       <form onSubmit={handleSend} className="p-4 bg-slate-800/20 border-t border-slate-800/50">
+        <label htmlFor="chat-message-input" className="sr-only">
+          Ask about this model
+        </label>
         <div className="relative">
           <input
+            id="chat-message-input"
+            name="chatMessage"
             type="text"
             placeholder="Ask about this model..."
             value={input}
