@@ -4,6 +4,8 @@ PowerShell setup script to clone TripoSR and install dependencies.
 Place this file in `ML/core` and run from that directory.
 #>
 
+#pragma warning disable PSPossibleIncorrectComparisonWithNull
+
 param()
 
 Set-StrictMode -Version Latest
@@ -34,8 +36,10 @@ if (-not (Test-Path $target)) {
 }
 
 # Patch requirements to prefer pymcubes over various torch-mcubes package names
- $reqFiles = Get-ChildItem -Path $target -Recurse -Include requirements*.txt -ErrorAction SilentlyContinue
-if ($reqFiles -ne $null -and $reqFiles.Count -gt 0) {
+$reqFiles = @(Get-ChildItem -Path $target -Recurse -Include requirements*.txt -ErrorAction SilentlyContinue)
+$hasReqFiles = ($reqFiles.Count -gt 0)
+
+if ($hasReqFiles) {
     foreach ($f in $reqFiles) {
         Write-Output "Patching $($f.FullName)"
         (Get-Content $f.FullName) -replace '(?i)torch[-_]?mcubes|tochmcubes', 'pymcubes' | Set-Content $f.FullName
@@ -60,7 +64,7 @@ if (-not (Test-Path $python)) {
 
 & $python -m pip install -U pip
 
-if ($reqFiles -ne $null -and $reqFiles.Count -gt 0) {
+if ($hasReqFiles) {
     foreach ($f in $reqFiles) {
         Write-Output "Installing requirements from $($f.FullName)"
         & $python -m pip install -r $f.FullName
@@ -85,3 +89,5 @@ if (Test-Path $shimSrc) {
 
 Write-Output "Setup complete. Inspect $target and set TRIPO_COMMAND to run inference. Example:"
 Write-Output "$env:TRIPO_COMMAND = \"$python $target\inference.py --input {input_image} --out {output_dir}\""
+
+#pragma warning restore PSPossibleIncorrectComparisonWithNull

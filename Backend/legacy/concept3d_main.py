@@ -80,7 +80,6 @@ def ai_label_parts(model_path: str, concept: str, model_name: str = "") -> dict:
         return {"parts": []}
 
 
-
 STOPWORDS = {
     "a",
     "an",
@@ -931,8 +930,6 @@ atexit.register(stop_recursive_training)
 
 # --- Server startup ---
 if __name__ == "__main__":
-    import uvicorn
-
     port = int(os.getenv("PORT", "8000"))
     host = os.getenv("HOST", "0.0.0.0")
     print(f"Starting server on {host}:{port}")
