@@ -1,0 +1,11 @@
+[flake8]
+max-line-length = 240
+extend-ignore = E203
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    .ruff_cache,
+    node_modules,
+    3d-models/backend/ml/triposr,
+    3d-models/backend/ml/shims

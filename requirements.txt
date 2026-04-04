@@ -1,0 +1,44 @@
+# Combined requirements for the entire project
+# Sources merged from:
+# - 3d-models/requirements.txt
+# - 3d-models/backend/requirements.txt
+# - 3d-models/backend/ml/triposr/requirements.txt
+# - Concept-2-3D/concept3d/backend/requirements.txt
+# Conflict resolution heuristics applied:
+# - Where an exact version pin was present (==), the pinned version was chosen.
+# - For packages appearing multiple times without exact pins, the entry is left unpinned.
+# - Platform-specific entries from original files are preserved.
+
+accelerate==0.32.1
+chromadb
+diffusers
+einops==0.7.0
+fastapi
+google-generativeai
+groq
+gradio
+huggingface-hub==0.24.7
+imageio[ffmpeg]
+omegaconf==2.3.0
+Pillow==10.1.0
+pymongo
+# Pymcubes is required by the TripoSR adapter; installed from git
+pymcubes
+python-dotenv
+python-multipart
+pydantic
+requests
+rembg
+safetensors
+scipy
+# NOTE: torch is left unpinned because platform (cpu/gpu) and build options vary greatly.
+torch
+transformers==4.41.2
+trimesh==4.0.5
+uvicorn
+xatlas==0.0.9
+moderngl==5.10.0
+
+# Platform-specific ONNX runtimes as in original concept3d requirements
+onnxruntime; sys_platform == 'darwin'
+onnxruntime-gpu; sys_platform != 'darwin'

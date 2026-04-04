@@ -1,0 +1,22 @@
+fastapi
+uvicorn
+requests
+python-dotenv
+python-multipart
+pydantic
+
+pymongo
+wikipedia
+
+transformers==4.41.2
+torch
+pillow
+trimesh
+scipy
+diffusers
+accelerate==0.32.1
+huggingface-hub==0.24.7
+safetensors
+rembg
+onnxruntime; sys_platform == 'darwin'
+onnxruntime-gpu; sys_platform != 'darwin'

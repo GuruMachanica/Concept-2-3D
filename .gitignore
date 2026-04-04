@@ -1,0 +1,86 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.pytest_cache/
+.env
+.venv/
+venv/
+env/
+*.pyc
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log
+
+# VSCode
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Build / models / generated artifacts
+/Backend/**/models/
+/Frontend/**/node_modules/
+/Frontend/**/dist/
+/ML/**/models/
+
+# Docker
+docker-compose.override.yml
+
+# Misc
+coverage/
+local_settings.py
+# OS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+*/venv/
+*/.venv/
+
+# Node
+node_modules/
+*/node_modules/
+*/dist/
+*/build/
+.cache/
+
+# Git internals from nested repos (removed, but keep ignored if reintroduced)
+**/.git/
+
+# Large/generated model artifacts
+**/models/*.glb
+**/models/*.gltf
+**/models/*.bin
+**/models/*.fbx
+ML/3d-models-ml/triposr_weights/
+
+# Databases / caches
+**/chroma_db/
+**/chroma_db_final/
+**/chroma_db_v2/
+**/chroma_db_v3/
+**/reviews.db
+**/hf_cache/
+**/ml/cache/
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.production.example
