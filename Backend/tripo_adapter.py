@@ -176,6 +176,8 @@ def generate_from_image(
         [
             os.path.join(backend_dir, "ml", ".venv", "Scripts", "python.exe"),
             os.path.join(backend_dir, "ml", ".venv", "bin", "python"),
+            os.path.join(repo_root, "ML", "core", ".venv", "Scripts", "python.exe"),
+            os.path.join(repo_root, "ML", "core", ".venv", "bin", "python"),
             os.path.join(repo_root, "ML", "3d-models-ml", ".venv", "Scripts", "python.exe"),
             os.path.join(repo_root, "ML", "3d-models-ml", ".venv", "bin", "python"),
             os.path.join(repo_root, ".venv", "Scripts", "python.exe"),
@@ -188,6 +190,7 @@ def generate_from_image(
         candidate = _first_existing(
             [
                 os.path.join(backend_dir, "ml", "triposr", "run.py"),
+                os.path.join(repo_root, "ML", "core", "triposr", "run.py"),
                 os.path.join(repo_root, "ML", "3d-models-ml", "triposr", "run.py"),
             ]
         )
@@ -198,6 +201,7 @@ def generate_from_image(
             weights_path = _first_existing(
                 [
                     os.path.join(backend_dir, "ml", "triposr_weights"),
+                    os.path.join(repo_root, "ML", "core", "triposr_weights"),
                     os.path.join(repo_root, "ML", "3d-models-ml", "triposr_weights"),
                 ]
             )

@@ -68,7 +68,7 @@ node_modules/
 **/models/*.gltf
 **/models/*.bin
 **/models/*.fbx
-ML/3d-models-ml/triposr_weights/
+ML/core/triposr_weights/
 
 # Databases / caches
 **/chroma_db/

@@ -9,8 +9,8 @@ Concept-2-3D is a full-stack 3D generation and discovery project with:
 ## Monorepo layout
 
 - Backend: FastAPI service and APIs.
-- Frontend/3d-models-frontend: React app (Vite).
-- ML/3d-models-ml: TripoSR helpers, shims, and model-weight utilities.
+- Frontend: React app (Vite).
+- ML/core: TripoSR helpers, shims, and model-weight utilities.
 - scripts: one-command virtual environment setup for Windows and Linux/macOS.
 
 ## Features
@@ -61,7 +61,7 @@ At minimum, configure the providers you plan to use (for example GROQ or FREE_AI
 ### 4) Install frontend dependencies
 
 ```powershell
-cd Frontend/3d-models-frontend
+cd Frontend
 npm install
 cd ../..
 ```
@@ -82,7 +82,7 @@ Why port 8011:
 In a second terminal:
 
 ```powershell
-cd Frontend/3d-models-frontend
+cd Frontend
 npm run dev
 ```
 
@@ -126,7 +126,7 @@ When backend is running locally on port 8011, docs are available at:
 - Lint frontend:
 
 ```powershell
-cd Frontend/3d-models-frontend
+cd Frontend
 npm run lint
 ```
 
@@ -142,3 +142,7 @@ npm run lint
 ## Related docs
 
 - README_SETUP_VENV.md for venv setup details.
+
+## License
+
+- This project is distributed under the Inspiration-Only License. See LICENSE.

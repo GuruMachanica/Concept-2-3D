@@ -1,7 +1,7 @@
 <#
 PowerShell setup script to clone TripoSR and install dependencies.
 
-Place this file in `3d-models/backend/ml` and run from that directory.
+Place this file in `ML/core` and run from that directory.
 #>
 
 param()

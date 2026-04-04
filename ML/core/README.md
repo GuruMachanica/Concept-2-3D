@@ -2,7 +2,7 @@ TripoSR setup
 =================
 
 This folder contains helper scripts to clone and prepare the TripoSR repository
-for local use inside the `3d-models` backend. The setup replaces references to
+for local use inside this monorepo under `ML/core`. The setup replaces references to
 `torchmcubes` (or similarly-named marching-cubes packages) with `pymcubes` via
 a shim so the upstream code can import the expected module name.
 
@@ -15,12 +15,11 @@ Overview
 
 How to run (Windows PowerShell)
 -------------------------------
-1. Open PowerShell in `3d-models/backend/ml`.
+1. Open PowerShell in `ML/core`.
 2. Run:
 
 ```powershell
-.\
-setup_triposr.ps1
+.\setup_triposr.ps1
 ```
 
 3. The script will clone `https://github.com/VAST-AI-Research/TripoSR.git`
