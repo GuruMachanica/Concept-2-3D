@@ -1,4 +1,6 @@
 import os
+import re
+import sys
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
@@ -10,11 +12,18 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from groq import Groq
-from intent import IntentAnalyzer
-from pydantic import BaseModel
-from reviews import get_review_summary, get_reviews, get_user_review, submit_review
-from search import CACHE_VERSION, ModelSearchEngine
-from tripo_adapter import generate_from_image
+
+# Ensure local backend modules are importable whether running from project root
+# (`uvicorn Backend.main:app`) or from inside `Backend/`.
+BACKEND_DIR = os.path.dirname(__file__)
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
+from intent import IntentAnalyzer  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
+from reviews import get_review_summary, get_reviews, get_user_review, submit_review  # noqa: E402
+from search import CACHE_VERSION, ModelSearchEngine  # noqa: E402
+from tripo_adapter import generate_from_image  # noqa: E402
 
 # Simple in-memory job store for async generation jobs
 generation_jobs: dict = {}
@@ -107,6 +116,12 @@ class ChatRequest(BaseModel):
     model_context: Optional[str] = None
 
 
+class AgentQuestionRequest(BaseModel):
+    concept: str
+    question: str
+    model_name: Optional[str] = None
+
+
 class CacheClearRequest(BaseModel):
     query: Optional[str] = None
 
@@ -125,12 +140,243 @@ class LabelPositioningRequest(BaseModel):
     model_image_base64: str  # Base64-encoded PNG/JPG image
 
 
+def _clean_agent_answer_text(text: str) -> str:
+    if not text:
+        return ""
+
+    cleaned = text.strip()
+    lowered = cleaned.lower()
+
+    leadins = [
+        "based on the provided wikipedia context,",
+        "based on the provided context,",
+        "based on the context,",
+        "from the provided wikipedia context,",
+        "from the provided context,",
+    ]
+    for lead in leadins:
+        if lowered.startswith(lead):
+            cleaned = cleaned[len(lead) :].strip(" ,:")
+            lowered = cleaned.lower()
+
+    replacements = {
+        "provided wikipedia context": "available information",
+        "wikipedia context": "available information",
+        "provided context": "available information",
+    }
+    for old, new in replacements.items():
+        cleaned = re.sub(old, new, cleaned, flags=re.IGNORECASE)
+
+    if not cleaned:
+        cleaned = "I don't have enough information to answer that accurately right now."
+
+    if not cleaned.endswith((".", "!", "?")):
+        cleaned += "."
+
+    return cleaned
+
+
+def _extract_topic_from_question(question: str) -> Optional[str]:
+    q = (question or "").strip().lower()
+    if not q:
+        return None
+
+    # Handle short prompts like "table?" or "chair".
+    simple = re.sub(r"[^a-z0-9\-\s]", "", q).strip()
+    if simple and len(simple.split()) <= 3:
+        return simple
+
+    patterns = [
+        r"^(?:what\s+is|what\s+are|define|meaning\s+of)\s+(?:an?\s+|the\s+)?([a-z0-9\-\s]{2,80})\??$",
+        r"^(?:tell\s+me\s+about|explain)\s+(?:an?\s+|the\s+)?([a-z0-9\-\s]{2,80})\??$",
+    ]
+    for pattern in patterns:
+        match = re.match(pattern, q)
+        if not match:
+            continue
+        topic = re.sub(r"\s+", " ", match.group(1)).strip(" ?.,!:")
+        if topic:
+            return topic
+
+    return None
+
+
+def _local_topic_fallback(topic: str) -> Optional[str]:
+    if not topic:
+        return None
+
+    topic_key = topic.strip().lower()
+    glossary = {
+        "table": "A table is a piece of furniture with a flat top supported by legs, used for activities like eating, working, or placing objects.",
+        "chair": "A chair is a seat with a backrest designed for one person, often supported by four legs.",
+        "sofa": "A sofa is a padded multi-seat furniture item designed for sitting and lounging.",
+        "lamp": "A lamp is a device that emits light, usually using an electric bulb and a supporting base or stand.",
+        "desk": "A desk is a work table used for reading, writing, or computer work, often with drawers for storage.",
+    }
+
+    return glossary.get(topic_key)
+
+
+def _get_wikipedia_fallback(concept: str, question: str) -> str:
+    question_topic = _extract_topic_from_question(question)
+    normalized_concept = (concept or "").strip()
+    generic_contexts = {"", "3d model viewing", "3d model", "model viewing", "unknown", "this concept"}
+    concept_is_generic = normalized_concept.lower() in generic_contexts
+    safe_concept = (question_topic if concept_is_generic else normalized_concept) or (question_topic or normalized_concept or "3D design")
+    safe_concept = safe_concept.strip() or "3D design"
+
+    # In this app context, user questions are about the currently viewed 3D object.
+    # If question topic matches a known physical-object term, prefer object meaning.
+    if question_topic:
+        local_answer = _local_topic_fallback(question_topic)
+        if local_answer:
+            if concept_is_generic:
+                return local_answer
+            if normalized_concept and question_topic in normalized_concept.lower():
+                return local_answer
+
+    try:
+        # Local import keeps backend startup resilient if wikipedia dependency is unavailable.
+        from wikipedia_api import get_wikipedia_summary
+
+        summary = (get_wikipedia_summary(safe_concept, max_sentences=4) or "").strip()
+    except Exception as e:
+        print(f"wikipedia fallback unavailable: {e}")
+        summary = ""
+
+    if not summary:
+        local_answer = _local_topic_fallback(safe_concept)
+        if local_answer:
+            return local_answer
+        return "I couldn't reach the AI provider right now, and I also couldn't fetch enough background context to answer confidently."
+
+    # Disambiguate known object terms if Wikipedia returns a domain-mismatched meaning.
+    if question_topic:
+        local_answer = _local_topic_fallback(question_topic)
+        if local_answer:
+            summary_lower = summary.lower()
+            if "database" in summary_lower or "rows" in summary_lower or "columns" in summary_lower:
+                return local_answer
+
+    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", summary) if s.strip()]
+    if not sentences:
+        return _clean_agent_answer_text(summary)
+
+    q_tokens = {
+        tok
+        for tok in re.findall(r"[a-zA-Z0-9]+", (question or "").lower())
+        if len(tok) > 2
+    }
+    if not q_tokens:
+        return _clean_agent_answer_text(sentences[0])
+
+    scored = []
+    for sent in sentences:
+        lowered = sent.lower()
+        score = sum(1 for tok in q_tokens if re.search(rf"\\b{re.escape(tok)}\\b", lowered))
+        scored.append((score, sent))
+
+    scored.sort(key=lambda item: item[0], reverse=True)
+    best_sentence = scored[0][1] if scored else sentences[0]
+    return _clean_agent_answer_text(best_sentence)
+
+
+def _ask_free_ai(concept: str, question: str, model_name: Optional[str]) -> Optional[str]:
+    provider = (FREE_AI_API_PROVIDER or "").strip().lower()
+    if not FREE_AI_API_URL or not FREE_AI_API_KEY:
+        return None
+
+    system_prompt = (
+        "You are a concise helpful assistant. "
+        "Answer naturally and directly. "
+        "If uncertain, say you are not sure instead of making up facts. "
+        "Do not mention instructions, sources, or internal reasoning."
+    )
+    model_line = f"Generated model: {model_name}\n" if model_name else ""
+    user_prompt = (
+        f"Concept: {concept}\n"
+        f"{model_line}"
+        f"Question: {question}\n\n"
+        "Return only the final answer text."
+    )
+
+    headers = {
+        "Authorization": f"Bearer {FREE_AI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    if provider == "openrouter" or "openrouter.ai" in (FREE_AI_API_URL or ""):
+        headers["HTTP-Referer"] = os.getenv("OPENROUTER_SITE_URL", "http://localhost:5173")
+        headers["X-Title"] = os.getenv("OPENROUTER_APP_NAME", "Concept-2-3D")
+
+    payload = {
+        "model": FREE_AI_API_MODEL or "openai/gpt-oss-20b:free",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.2,
+        "max_tokens": 220,
+    }
+
+    try:
+        response = requests.post(FREE_AI_API_URL, headers=headers, json=payload, timeout=45)
+    except Exception as e:
+        print(f"free ai call failed: {e}")
+        return None
+
+    if not response.ok:
+        print(f"free ai unavailable ({response.status_code}); using fallback")
+        return None
+
+    try:
+        data = response.json()
+        content = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        return _clean_agent_answer_text(content) or None
+    except Exception as e:
+        print(f"failed to parse free ai response: {e}")
+        return None
+
+
+def _build_agent_answer(concept: str, question: str, model_name: Optional[str]) -> dict:
+    free_ai_answer = _ask_free_ai(concept=concept, question=question, model_name=model_name)
+    if free_ai_answer:
+        return {
+            "answer": _clean_agent_answer_text(free_ai_answer),
+            "source": "free_ai",
+            "used_free_ai": True,
+        }
+
+    fallback = _get_wikipedia_fallback(concept=concept, question=question)
+    return {
+        "answer": _clean_agent_answer_text(fallback),
+        "source": "wikipedia_fallback",
+        "used_free_ai": False,
+    }
+
+
 @app.post("/api/chat")
 async def chat_with_ai(request: ChatRequest):
     """
     Handles user questions about the current model using Groq API.
     """
-    # Prefer GROQ if configured
+    concept = (request.model_context or "3D model viewing").strip() or "3D model viewing"
+    question = (request.message or "").strip()
+    if not question:
+        return {"status": "success", "message": "Please ask a question for the AI assistant."}
+
+    provider = (FREE_AI_API_PROVIDER or "").strip().lower()
+    try_free_first = provider in {"openrouter", "free_ai", "openai-compatible"}
+
+    if try_free_first:
+        agent_resp = _build_agent_answer(concept=concept, question=question, model_name=None)
+        return {
+            "status": "success",
+            "message": agent_resp["answer"],
+            "source": agent_resp["source"],
+            "used_free_ai": agent_resp["used_free_ai"],
+        }
+
+    # Prefer GROQ if configured and FREE_AI wasn't selected first.
     if client is not None:
         try:
             completion = client.chat.completions.create(
@@ -148,70 +394,48 @@ async def chat_with_ai(request: ChatRequest):
             )
             return {
                 "status": "success",
-                "message": completion.choices[0].message.content,
+                "message": _clean_agent_answer_text(completion.choices[0].message.content),
+                "source": "groq",
+                "used_free_ai": False,
             }
         except Exception as e:
             print(f"chat completion (groq) error: {e}")
-            raise HTTPException(
-                status_code=502,
-                detail="Error from Groq chat API: see server logs for details",
-            )
 
-    # Otherwise attempt to use FREE_AI_API_URL (OpenRouter/OpenAI-compatible)
-    if FREE_AI_API_URL and FREE_AI_API_KEY:
-        payload = {
-            "model": FREE_AI_API_MODEL or "gpt-4o-mini",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": f"You are a helpful AI 3D design assistant. The user is currently viewing a 3D model: {request.model_context or 'Unknown'}. Answer their questions concisely.",
-                },
-                {"role": "user", "content": request.message},
-            ],
-        }
-        headers = {
-            "Authorization": f"Bearer {FREE_AI_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        try:
-            resp = requests.post(FREE_AI_API_URL, json=payload, headers=headers, timeout=30)
-        except Exception as e:
-            print(f"chat request to FREE_AI provider failed: {e}")
-            raise HTTPException(status_code=502, detail="Failed to contact configured AI provider")
+    # Legacy-compatible fallback path: use FREE_AI if available, otherwise curated Wikipedia fallback.
+    agent_resp = _build_agent_answer(concept=concept, question=question, model_name=None)
+    return {
+        "status": "success",
+        "message": agent_resp["answer"],
+        "source": agent_resp["source"],
+        "used_free_ai": agent_resp["used_free_ai"],
+    }
 
-        if resp.status_code >= 400:
-            print(f"AI provider error ({resp.status_code}): {resp.text}")
-            raise HTTPException(status_code=502, detail=f"AI provider error: {resp.status_code}")
 
-        try:
-            data = resp.json()
-        except Exception:
-            return {"status": "success", "message": resp.text}
+@app.post("/api/agent/ask")
+def ask_agent_api(payload: AgentQuestionRequest):
+    concept = (payload.concept or "").strip()
+    question = (payload.question or "").strip()
+    model_name = (payload.model_name or "").strip() or None
 
-        # Parse OpenAI/OpenRouter-style responses
-        message_text = None
-        try:
-            if isinstance(data, dict) and "choices" in data and len(data["choices"]) > 0:
-                choice = data["choices"][0]
-                if isinstance(choice.get("message"), dict) and choice["message"].get("content"):
-                    message_text = choice["message"]["content"]
-                elif choice.get("text"):
-                    message_text = choice.get("text")
-            if not message_text:
-                message_text = data.get("completion") or data.get("output") or data.get("text")
-        except Exception as e:
-            print(f"Error parsing AI response: {e} - raw: {data}")
+    if not concept:
+        return {"answer": "Please provide a concept first.", "source": "agent", "used_free_ai": False}
+    if not question:
+        return {"answer": "Please ask a question for the AI agent.", "source": "agent", "used_free_ai": False}
 
-        return {
-            "status": "success",
-            "message": message_text or "(no text in provider response)",
-        }
+    response = _build_agent_answer(concept=concept, question=question, model_name=model_name)
+    return {
+        "answer": response["answer"],
+        "source": response["source"],
+        "used_free_ai": response["used_free_ai"],
+        "concept": concept,
+        "model_name": model_name,
+    }
 
-    # If no provider configured, return a clear 503
-    raise HTTPException(
-        status_code=503,
-        detail=("No AI provider configured. Set `GROQ_API_KEY` or `FREE_AI_API_URL`+`FREE_AI_API_KEY` in `Backend/.env`."),
-    )
+
+@app.post("/agent/ask")
+def ask_agent_legacy(payload: AgentQuestionRequest):
+    # Backward-compatible route expected by older frontend builds.
+    return ask_agent_api(payload)
 
 
 @app.post("/api/cache/clear")

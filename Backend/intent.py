@@ -1,24 +1,20 @@
 import json
 import os
 
-import google.generativeai as genai
+from gemini_client import gemini_generate_text
 
 
 class IntentAnalyzer:
     def __init__(self):
         # Configure Gemini API if key is available
         self.api_key = os.getenv("GEMINI_API_KEY")
-        if self.api_key:
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel("gemini-1.5-flash")
-        else:
-            self.model = None
+        self.model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
     def parse(self, query: str) -> dict:
         """
         Takes a natural language query and breaks it down into intent using LLM.
         """
-        if self.model:
+        if self.api_key:
             prompt = f"""
             Analyze the following query to extract structural intent for a 3D model generator.
             Return ONLY a valid JSON object with these keys:
@@ -29,13 +25,15 @@ class IntentAnalyzer:
             Query: "{query}"
             """
             try:
-                response = self.model.generate_content(prompt)
-                text = response.text.strip()
+                text = gemini_generate_text(prompt=prompt, model=self.model_name, api_key=self.api_key) or ""
+                text = text.strip()
                 # Remove markdown formatting if present
                 if text.startswith("```json"):
                     text = text[7:-3]
                 elif text.startswith("```"):
                     text = text[3:-3]
+                if not text:
+                    return self._naive_parse(query)
                 return json.loads(text.strip())
             except Exception as e:
                 print(f"Error accessing Gemini: {e}")

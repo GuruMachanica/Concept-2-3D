@@ -9,13 +9,7 @@ import requests
 from cache import QueryCache
 from category_index import detect_categories, get_category_part_priors
 from fallback import build_fallback_payload
-
-try:
-    import google.generativeai as genai
-
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+from gemini_client import gemini_generate_text
 
 CACHE_VERSION = "v43"
 HIGH_SIMILARITY_THRESHOLD = 85
@@ -35,11 +29,8 @@ class ModelSearchEngine:
 
         # Initialize Gemini API for vision-based label positioning
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
-        if GEMINI_AVAILABLE and self.gemini_api_key:
-            genai.configure(api_key=self.gemini_api_key)
-            self.gemini_model = genai.GenerativeModel("gemini-2.0-flash-exp")
-        else:
-            self.gemini_model = None
+        self.gemini_model_name = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        self.gemini_enabled = bool(self.gemini_api_key)
 
     def _get_gemini_label_positions(
         self,
@@ -58,7 +49,7 @@ class ModelSearchEngine:
         Returns:
             Updated part_definitions with refined x,y,z coordinates from Gemini vision analysis
         """
-        if not self.gemini_model or not model_image_base64:
+        if not self.gemini_enabled or not model_image_base64:
             return part_definitions
 
         if not part_definitions:
@@ -90,14 +81,16 @@ Be precise and place labels exactly where the parts are visible in the image. Co
 
             # Decode image and send bytes to Gemini for vision analysis
             image_data = base64.b64decode(model_image_base64)
-            image = {
-                "mime_type": "image/png",
-                "data": image_data,
-            }
-
-            message = self.gemini_model.generate_content([prompt, image])
-
-            response_text = message.text or ""
+            response_text = (
+                gemini_generate_text(
+                    prompt=prompt,
+                    model=self.gemini_model_name,
+                    api_key=self.gemini_api_key,
+                    image_bytes=image_data,
+                    image_mime_type="image/png",
+                )
+                or ""
+            )
 
             # Parse JSON from response
             json_start = response_text.find("{")
@@ -335,7 +328,7 @@ Be precise and place labels exactly where the parts are visible in the image. Co
         if query_specific:
             return query_specific[:max_parts]
 
-        if not self.gemini_model:
+        if not self.gemini_enabled:
             return []
 
         try:
@@ -361,8 +354,7 @@ Rules:
 - position values must be in range [-0.5, 0.5]
 - Keep concise and physically meaningful
 """
-            response = self.gemini_model.generate_content(prompt)
-            text = (response.text or "").strip()
+            text = (gemini_generate_text(prompt=prompt, model=self.gemini_model_name, api_key=self.gemini_api_key) or "").strip()
             start = text.find("{")
             end = text.rfind("}")
             if start < 0 or end <= start:
@@ -1367,18 +1359,16 @@ Rules:
         """
         Uses Gemini to generate a descriptive prompt and returns a 2D image URL.
         """
-        import google.generativeai as genai
-
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             return None
 
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
             prompt = f"Create a highly descriptive, artistic prompt for an image of '{keywords}'. Return ONLY the prompt text."
-            response = model.generate_content(prompt)
-            img_prompt = response.text.strip().replace(" ", "%20")
+            img_prompt_text = gemini_generate_text(prompt=prompt, model=self.gemini_model_name, api_key=api_key)
+            if not img_prompt_text:
+                return None
+            img_prompt = img_prompt_text.strip().replace(" ", "%20")
 
             # Use Pollinations AI for free image generation
             image_url = f"https://image.pollinations.ai/prompt/{img_prompt}?width=1024&height=1024&nologo=true"

@@ -7,36 +7,36 @@ export function generateNarration(topic, modelData, activeQuery) {
   if (!topic || !modelData) return '';
 
   // Extract available information
-  const title = modelData.title || topic;
+  const title = (modelData.title || topic || '').trim();
+  const normalizedTopic = (activeQuery || topic || title || 'this model').trim();
   const aiOverview = (modelData.ai_overview || '').trim();
   const source = modelData.source || '';
-  const description = modelData.description || '';
+  const description = (modelData.description || '').trim();
+  const readableName = title || normalizedTopic;
   
   // Start building comprehensive narration
   let narration = '';
 
   // PART 1: Introduction (15-20 seconds)
-  narration += `You searched for "${topic.toLowerCase()}". `;
-  narration += `This visualization shows a three-dimensional representation of ${title}. `;
+  narration += `You searched for "${normalizedTopic.toLowerCase()}". `;
+  narration += `This visualization shows a three-dimensional model of ${readableName}. `;
 
   // PART 2: Concept Clarity from AI Overview (45-60 seconds)
   if (aiOverview) {
     // Use Wikipedia summary if available
     narration += `Here's an overview: ${aiOverview}. `;
   } else {
-    // Fallback: generate from available data
-    narration += `${title} is an important concept in education and understanding. `;
-    
+    // Fallback: keep object-focused, avoid generic domain filler.
     if (description) {
-      narration += `${description}. `;
+      narration += `${description.endsWith('.') ? description : `${description}.`} `;
     } else {
-      narration += `This three-dimensional model helps you visualize and understand the spatial properties and structure of ${title}. `;
+      narration += `This model helps you inspect the shape, proportions, and structure of ${readableName} from multiple angles. `;
     }
   }
 
   // PART 3: Interactive Features & How to Use (20-30 seconds)
-  narration += `You can interact with this model by rotating it to view from different angles using your mouse or touch controls. `;
-  narration += `You can also zoom in and out to examine specific parts in detail. `;
+  narration += `You can rotate the model to view it from different angles using your mouse or touch controls. `;
+  narration += `You can also zoom in and out to examine details more closely. `;
   
   if (modelData.part_definitions && modelData.part_definitions.length > 0) {
     const partCount = Math.min(modelData.part_definitions.length, 5);
@@ -57,7 +57,7 @@ export function generateNarration(topic, modelData, activeQuery) {
   }
 
   // PART 5: Call to Action (10-15 seconds)
-  narration += `Explore this visualization to enhance your understanding of ${title}. `;
+  narration += `Explore this model to better understand ${readableName}. `;
   narration += `You can submit a rating and feedback to help other learners find the best models.`;
 
   return narration;

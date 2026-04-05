@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import { apiUrl } from '../config/api';
 
-export default function AIChatbot() {
+export default function AIChatbot({ modelContext = '3D model viewing' }) {
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -28,7 +28,7 @@ export default function AIChatbot() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: input,
-          model_context: "3D Model Viewing" // Could be enhanced with actual model metadata
+          model_context: modelContext,
         })
       });
       const data = await response.json();

@@ -7,6 +7,7 @@ pydantic
 
 pymongo
 wikipedia
+google-genai
 
 transformers==4.41.2
 torch

@@ -7,17 +7,18 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    {
-      name: 'permissions-policy-header',
-      configureServer(server) {
-        server.middlewares.use((req, res, next) => {
-          res.setHeader('Permissions-Policy', 'accelerometer=(), gyroscope=()');
-          next();
-        });
-      },
-    },
   ],
   server: {
+    // Bind IPv4 explicitly so localhost/ws resolution is stable on Windows.
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
+    hmr: {
+      host: 'localhost',
+      protocol: 'ws',
+      port: 5173,
+      clientPort: 5173,
+    },
     // Proxy API and model asset requests to the backend during development.
     // Set BACKEND env var to override the default host:port.
     proxy: {

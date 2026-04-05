@@ -14,9 +14,8 @@ chromadb
 diffusers
 einops==0.7.0
 fastapi
-google-generativeai
+google-genai
 groq
-gradio
 huggingface-hub==0.24.7
 imageio[ffmpeg]
 omegaconf==2.3.0
@@ -28,6 +27,7 @@ python-dotenv
 python-multipart
 pydantic
 requests
+wikipedia
 rembg
 safetensors
 scipy

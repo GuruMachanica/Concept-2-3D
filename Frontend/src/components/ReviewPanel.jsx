@@ -199,7 +199,7 @@ export default function ReviewPanel({ modelId, modelTitle, onReviewSubmitted }) 
       {/* Review Submission Form */}
       <div className="bg-slate-800/30 rounded-lg p-3 mb-3 border border-slate-700/50">
         <div className="mb-2">
-          <label className="text-xs font-semibold text-slate-200 block mb-2">
+          <label htmlFor="review-comment" className="text-xs font-semibold text-slate-200 block mb-2">
             {userReview ? 'Update Your Review' : 'Leave a Review'}
           </label>
           <StarRating
@@ -211,6 +211,8 @@ export default function ReviewPanel({ modelId, modelTitle, onReviewSubmitted }) 
         </div>
 
         <textarea
+          id="review-comment"
+          name="reviewComment"
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="Share your thoughts about this model..."

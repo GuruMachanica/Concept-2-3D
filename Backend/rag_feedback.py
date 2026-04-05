@@ -10,14 +10,7 @@ import time
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional
 
-# Import Gemini for embeddings if available
-try:
-    import google.generativeai as genai
-
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
-    genai = None
+from gemini_client import gemini_embed_text
 
 # Import database functions
 from Backend.concept3d.database import get_db
@@ -32,18 +25,15 @@ class RAGFeedbackStore:
 
     def _get_gemini_embedding(self, text: str) -> List[float]:
         """Get embedding from Gemini API."""
-        if not GEMINI_AVAILABLE:
-            return self._simple_embedding(text)
-
         try:
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key:
                 return self._simple_embedding(text)
 
-            genai.configure(api_key=api_key)
-            # genai.GenerativeModel is not required for embed_content; avoid unused assignment
-            result = genai.embed_content(model="models/embedding-001", content=text)
-            return result["embedding"]
+            embedding = gemini_embed_text(text=text, api_key=api_key)
+            if embedding:
+                return embedding
+            return self._simple_embedding(text)
         except Exception as e:
             print(f"[RAG] Gemini embedding failed: {e}")
             return self._simple_embedding(text)

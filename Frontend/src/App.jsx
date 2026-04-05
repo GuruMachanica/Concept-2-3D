@@ -422,7 +422,9 @@ function App() {
                   className="absolute inset-0 transition-opacity duration-300 ease-in-out"
                   style={{ opacity: rightPanelTab === 'chat' ? 1 : 0, pointerEvents: rightPanelTab === 'chat' ? 'auto' : 'none' }}
                 >
-                  <AIChatbot />
+                  <AIChatbot
+                    modelContext={activeQuery || modelData?.title || modelData?.uid || '3D model viewing'}
+                  />
                 </div>
               </div>
             </div>
