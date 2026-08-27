@@ -1,18 +1,40 @@
 import os
 import time
 
-from pymongo import MongoClient
+try:
+    from pymongo import MongoClient
+except Exception:
+    MongoClient = None
+
+try:
+    from bson.objectid import ObjectId
+except Exception:
+    ObjectId = None
+
+
+_client = None
+_db_checked = False
 
 
 def get_db():
+    global _client, _db_checked
+    if MongoClient is None:
+        return None
+    if _client is not None:
+        return _client["concept3d"]
+    if _db_checked:
+        return None
+
     mongo_uri = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
     try:
         # 2000 ms timeout to fail fast if no local db is running
         client = MongoClient(mongo_uri, serverSelectionTimeoutMS=2000)
         # Test connection
         client.admin.command("ping")
-        return client["concept3d"]
+        _client = client
+        return _client["concept3d"]
     except Exception as e:
+        _db_checked = True
         print("MongoDB connection not available, proceeding without caching:", e)
         return None
 
@@ -250,7 +272,8 @@ def mark_training_processed(entry_ids):
     if db is not None:
         try:
             collection = db["training_data"]
-            from bson.objectid import ObjectId
+            if ObjectId is None:
+                return
 
             if not isinstance(entry_ids, list):
                 entry_ids = [entry_ids]

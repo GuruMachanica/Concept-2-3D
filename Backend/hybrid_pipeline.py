@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+import sys
 import time
 import urllib.parse
 import uuid
@@ -11,19 +12,23 @@ from typing import Any
 
 import requests
 
-from Backend.concept3d.gemini_search import (
+BACKEND_DIR = os.path.dirname(__file__)
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
+from gemini_search import (
     calculate_semantic_similarity,
     generate_search_queries,
     get_cached_similarity,
     get_enhanced_query,
     set_cached_similarity,
 )
-from Backend.concept3d.generative_stack import generate_ml_glb
-from Backend.concept3d.rag_feedback import (
+from generative_stack import generate_ml_glb
+from rag_feedback import (
     get_rag_search_enhancement,
     get_rag_source_recommendations,
 )
-from Backend.concept3d.sketchfab_scraper import (
+from sketchfab_scraper import (
     download_from_api,
     scrape_sketchfab_model,
 )
@@ -674,6 +679,9 @@ def _download_and_cache_glb(candidate: Candidate, models_dir: str) -> str | None
     model_path = os.path.join(models_dir, model_filename)
     if os.path.exists(model_path):
         return model_filename
+
+    url = None
+    headers = None
 
     try:
         if candidate.source == "blenderkit":

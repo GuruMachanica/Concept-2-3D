@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import sys
@@ -472,6 +473,9 @@ async def generate_from_image_endpoint(file: UploadFile = File(...)):
     """
     try:
         contents = await file.read()
+        if len(contents) > 30 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="File too large. Maximum allowed size is 30MB.")
+
         # persist the original upload for traceability
         uploads_dir = os.path.join(models_dir, "uploads")
         os.makedirs(uploads_dir, exist_ok=True)
@@ -487,7 +491,14 @@ async def generate_from_image_endpoint(file: UploadFile = File(...)):
         filename_prefix = os.getenv("TRIPO_PREFIX", "tripo")
         timeout = int(os.getenv("TRIPO_TIMEOUT", "600"))
 
-        glb_path = generate_from_image(contents, output_dir, filename_prefix=filename_prefix, timeout=timeout)
+        # Run long-running generation in a threadpool to prevent blocking the async event loop
+        glb_path = await asyncio.to_thread(
+            generate_from_image,
+            contents,
+            output_dir,
+            filename_prefix=filename_prefix,
+            timeout=timeout,
+        )
         if not glb_path:
             raise HTTPException(
                 status_code=501,
@@ -579,6 +590,8 @@ async def generate_from_image_async(file: UploadFile = File(...)):
     """Start a background generation job and return a job id for polling."""
     try:
         contents = await file.read()
+        if len(contents) > 30 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="File too large. Maximum allowed size is 30MB.")
         job_id = uuid.uuid4().hex
         generation_jobs[job_id] = {
             "status": "pending",
@@ -590,6 +603,8 @@ async def generate_from_image_async(file: UploadFile = File(...)):
         generation_executor.submit(_run_generation_job, job_id, contents)
 
         return {"status": "accepted", "job_id": job_id}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"generate_from_image_async error: {e}")
         raise HTTPException(status_code=500, detail=str(e))

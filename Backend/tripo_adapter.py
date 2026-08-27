@@ -244,59 +244,46 @@ def generate_from_image(
         # fallback to original
         input_path = orig_path
 
-    # Prepare command by replacing placeholders
+    # Prepare command by replacing placeholders safely
     # Supported placeholders: {input_image}, {output_dir}, {python}
     python_exec = ml_python or sys.executable
+    cmd_timeout = timeout or env_timeout or 300
+
     try:
-        cmd = tripo_cmd_template.format(input_image=input_path, output_dir=run_subdir, python=python_exec)
+        cmd_formatted = tripo_cmd_template.format(
+            input_image=input_path,
+            output_dir=run_subdir,
+            python=python_exec,
+        )
     except Exception:
-        cmd = tripo_cmd_template.format(input_image=input_path, output_dir=run_subdir)
+        cmd_formatted = tripo_cmd_template.format(
+            input_image=input_path,
+            output_dir=run_subdir,
+        )
 
-    # Decide whether to run under shell or as a list (safer)
-    use_shell = False
-    raw_template = os.getenv("TRIPO_COMMAND", "")
-    if raw_template and any(ch in raw_template for ch in ["|", ">", "&", ";", "*"]):
-        use_shell = True
-
-    # Always quote paths to avoid shell/arg parsing issues
-    qinput = f'"{input_path}"'
-    qout = f'"{run_subdir}"'
     try:
-        try:
-            cmd = tripo_cmd_template.format(input_image=qinput, output_dir=qout, python=python_exec)
-        except Exception:
-            cmd = tripo_cmd_template.format(input_image=qinput, output_dir=qout)
-
-        # run and capture output
-        if use_shell:
-            proc = subprocess.run(
-                cmd,
-                shell=True,
-                check=True,
-                timeout=timeout or env_timeout or 300,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-        else:
-            try:
-                cmd_list = shlex.split(cmd)
-                proc = subprocess.run(
-                    cmd_list,
-                    shell=False,
-                    check=True,
-                    timeout=timeout or env_timeout or 300,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
-            except Exception:
-                proc = subprocess.run(
-                    cmd,
-                    shell=True,
-                    check=True,
-                    timeout=timeout or env_timeout or 300,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                )
+        # Prefer list-based execution (shell=False) for safety
+        cmd_list = shlex.split(cmd_formatted, posix=(sys.platform != "win32"))
+        proc = subprocess.run(
+            cmd_list,
+            shell=False,
+            check=True,
+            timeout=cmd_timeout,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except Exception as exec_err:
+        # Fallback to shell execution only if list execution fails due to platform specifics
+        if isinstance(exec_err, (subprocess.CalledProcessError, subprocess.TimeoutExpired)):
+            raise
+        proc = subprocess.run(
+            cmd_formatted,
+            shell=True,
+            check=True,
+            timeout=cmd_timeout,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
     except subprocess.CalledProcessError as e:
         stderr = e.stderr.decode(errors="ignore") if e.stderr else ""
         stdout = e.stdout.decode(errors="ignore") if e.stdout else ""
@@ -305,7 +292,7 @@ def generate_from_image(
         try:
             with open(os.path.join(run_subdir, "run.log"), "wb") as lf:
                 lf.write(b"COMMAND:\n")
-                lf.write(str(cmd).encode(errors="ignore"))
+                lf.write(str(cmd_formatted).encode(errors="ignore"))
                 lf.write(b"\n\n")
                 lf.write(b"STDOUT:\n")
                 lf.write(stdout.encode(errors="ignore"))
@@ -323,7 +310,7 @@ def generate_from_image(
             with open(os.path.join(run_subdir, "run.log"), "wb") as lf:
                 lf.write(b"TIMEOUT\n")
                 lf.write(b"COMMAND:\n")
-                lf.write(str(cmd).encode(errors="ignore"))
+                lf.write(str(cmd_formatted).encode(errors="ignore"))
                 lf.write(b"\n")
         except Exception:
             pass
@@ -343,7 +330,7 @@ def generate_from_image(
         stderr = proc.stderr.decode(errors="ignore") if proc.stderr else ""
         with open(os.path.join(run_subdir, "run.log"), "wb") as lf:
             lf.write(b"COMMAND:\n")
-            lf.write(str(cmd).encode(errors="ignore"))
+            lf.write(str(cmd_formatted).encode(errors="ignore"))
             lf.write(b"\n\n")
             lf.write(b"STDOUT:\n")
             lf.write(stdout.encode(errors="ignore"))

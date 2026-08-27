@@ -6,14 +6,19 @@ to improve search results through historical pattern learning.
 """
 
 import os
+import sys
 import time
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Optional
 
+BACKEND_DIR = os.path.dirname(__file__)
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
 from gemini_client import gemini_embed_text
 
 # Import database functions
-from Backend.concept3d.database import get_db
+from database import get_db
 
 
 class RAGFeedbackStore:
@@ -145,6 +150,8 @@ class RAGFeedbackStore:
 
     def _update_concept_performance(self, concept: str, source: str, rating: float):
         """Update per-concept source performance metrics."""
+        if self.db is None:
+            return
         try:
             collection = self.db["source_performance"]
 

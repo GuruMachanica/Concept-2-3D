@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Star, Send, AlertCircle } from 'lucide-react';
 import { apiUrl } from '../config/api';
 
-export default function ReviewPanel({ modelId, modelTitle, onReviewSubmitted }) {
+export default function ReviewPanel({ modelId, onReviewSubmitted }) {
   const [reviews, setReviews] = useState([]);
   const [summary, setSummary] = useState(null);
   const [userReview, setUserReview] = useState(null);
@@ -25,14 +25,8 @@ export default function ReviewPanel({ modelId, modelTitle, onReviewSubmitted }) 
     setUserId(storedUserId);
   }, []);
 
-  // Fetch reviews and summary when model changes
-  useEffect(() => {
+  const fetchReviews = useCallback(async () => {
     if (!modelId || !userId) return;
-    fetchReviews();
-  }, [modelId, userId]);
-
-  const fetchReviews = async () => {
-    if (!modelId) return;
     
     setLoading(true);
     try {
@@ -61,7 +55,12 @@ export default function ReviewPanel({ modelId, modelTitle, onReviewSubmitted }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [modelId, userId]);
+
+  // Fetch reviews and summary when model changes
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
 
   const handleSubmitReview = async () => {
     if (!rating) {

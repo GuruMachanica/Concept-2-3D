@@ -67,7 +67,7 @@ export function generateNarration(topic, modelData, activeQuery) {
  * Enhanced narration with detailed point structure
  * For more detailed exploration
  */
-export function generateDetailedNarration(topic, modelData, activeQuery) {
+export function generateDetailedNarration(topic, modelData) {
   if (!topic || !modelData) return '';
 
   const title = modelData.title || topic;

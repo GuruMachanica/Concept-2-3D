@@ -9,18 +9,23 @@ This module implements a feedback-driven training system that:
 """
 
 import os
+import sys
 import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List
 
-from Backend.concept3d.database import (
+BACKEND_DIR = os.path.dirname(__file__)
+if BACKEND_DIR not in sys.path:
+    sys.path.insert(0, BACKEND_DIR)
+
+from database import (
     get_db,
     get_training_batch,
     mark_training_processed,
 )
-from Backend.concept3d.rag_feedback import get_rag_store
+from rag_feedback import get_rag_store
 
 
 @dataclass

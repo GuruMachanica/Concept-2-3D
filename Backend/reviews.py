@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 REVIEWS_DB = os.path.join(os.path.dirname(__file__), "reviews.db")
@@ -43,7 +43,7 @@ def submit_review(model_id: str, user_id: str, rating: int, comment: str = "") -
     cursor = conn.cursor()
 
     comment = (comment or "").strip()
-    now = datetime.utcnow().isoformat()
+    now = datetime.now(timezone.utc).isoformat()
 
     cursor.execute(
         """
